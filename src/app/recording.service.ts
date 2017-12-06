@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import { WorkerService } from './worker.service';
 
 @Injectable()
 export class RecordingService {
@@ -16,7 +17,7 @@ export class RecordingService {
   // private treshold = 2;
   public isRecording = false;
 
-  constructor() {
+  constructor(private workerService: WorkerService) {
     this.onAudioProcess = this.onAudioProcess.bind(this);
   }
 
@@ -59,23 +60,9 @@ export class RecordingService {
       }
 
       let audioBuffer = config.audioBuffer.slice(0);
-      // console.log(config.audioBuffer);
 
       audioBuffer = mergeBuffer(audioBuffer, config.internalInterleavedLength);
-
-      // console.log('loool', audioBuffer);
-
-      // audioBuffer = audioBuffer.filter(x => {
-      //   if (Math.abs(x) * 1000) {
-      //     // console.log('hit');
-      //     return true;
-      //   }
-      // });
       const audioBufferLength = audioBuffer.length;
-      // console.log('loool2', audioBuffer);
-
-      // for(let )
-
       // create wav file
       const resultingBufferLength = 44 + audioBufferLength * 2;
       const buffer = new ArrayBuffer(resultingBufferLength);
@@ -117,29 +104,29 @@ export class RecordingService {
       });
     }
 
-    const webWorker = this.processInWebWorker(processAudioBuffer);
+    const webWorker = this.workerService.execute(processAudioBuffer);
 
     webWorker.onmessage = function (event) {
       callback(event.data.buffer, event.data.view);
 
       // release memory
-      URL.revokeObjectURL(webWorker.workerURL);
+      URL.revokeObjectURL(webWorker.url);
     };
 
     webWorker.postMessage(config);
   }
 
-  private processInWebWorker(_function) {
-    const blob = new Blob([_function.toString(),
-    ';this.onmessage =  function (e) {' + _function.name + '(e.data);}'
-    ], { type: 'application/javascript' });
+  // private processInWebWorker(_function) {
+  //   const blob = new Blob([_function.toString(),
+  //   ';this.onmessage =  function (e) {' + _function.name + '(e.data);}'
+  //   ], { type: 'application/javascript' });
 
-    var workerURL = URL.createObjectURL(blob);
+  //   var workerURL = URL.createObjectURL(blob);
 
-    var worker: any = new Worker(workerURL);
-    worker.workerURL = workerURL;
-    return worker;
-  }
+  //   var worker: any = new Worker(workerURL);
+  //   worker.workerURL = workerURL;
+  //   return worker;
+  // }
 
   private stopRecording(callback) {
     this.isRecording = false;
@@ -153,7 +140,7 @@ export class RecordingService {
       audioBuffer: this.audioChannel
     };
 
-    this.getAudioBuffer(config, (buffer, view) => {
+    this.getAudioBuffer(config, (view) => {
 
       this.blob = new Blob([view], {
         type: 'audio/wav'
@@ -167,8 +154,8 @@ export class RecordingService {
 
   public start() {
     console.log('start recording');
-    const AudioCtx = window.AudioContext = (window.AudioContext || window.webkitAudioContext || window.mozAudioContext || window.oAudioContext || window.msAudioContext);
-    this.context = new AudioCtx();
+    const AudioContext = (window.AudioContext || window.webkitAudioContext || window.mozAudioContext || window.oAudioContext || window.msAudioContext);
+    this.context = new AudioContext();
 
     if (this.context.createJavaScriptNode) {
       this.jsAudioNode = this.context.createJavaScriptNode(this.bufferSize, 1, 1);
@@ -203,50 +190,28 @@ export class RecordingService {
       const audio = document.querySelector('audio');
       audio.src = url;
 
-      this.analyzeAudioBlob(blob);
-
-      const canvas: any = document.getElementById('vis');
-      const ctx = canvas.getContext('2d');
-      const step = Math.ceil(this.recordingLength / canvas.width);
-      const gain = 200;
-      ctx.fillStyle = '#FF0000';
-
-      const temp = [];
-      for (let i = 0; i < this.audioChannel.length; i++) {
-        const length = this.audioChannel[i].length
-        for (let j = 0; j < length; j++) {
-          temp.push(this.audioChannel[i][j]);
-        }
-      }
-
-      ctx.beginPath();
-      ctx.moveTo(0, canvas.height * 0.5);
-
-      for (var i = 0; i < canvas.width; i++) {
-        ctx.lineTo(i, canvas.height * 0.5 + temp[step * i] * gain);
-      }
-      ctx.stroke();
+      // this.analyzeAudioBlob(blob);
     });
   };
 
-  private analyzeAudioBlob(blob: Blob) {
-    return new Promise((resolve => {
-      let fileReader = new FileReader();
-      fileReader.onload = () => { resolve(fileReader.result) };
-      fileReader.readAsArrayBuffer(blob);
-    }))
-      .then(arrayBuffer => {
-        return this.context.decodeAudioData(arrayBuffer);
-      })
-      .then(audioBuffer => {
-        audioBuffer = new Uint8Array(audioBuffer.getChannelData(0).buffer);
-        audioBuffer = audioBuffer.filter(x => x > 0);
-        const bufferLength = audioBuffer.length;
+  // private analyzeAudioBlob(blob: Blob) {
+  //   return new Promise((resolve => {
+  //     let fileReader = new FileReader();
+  //     fileReader.onload = () => { resolve(fileReader.result) };
+  //     fileReader.readAsArrayBuffer(blob);
+  //   }))
+  //     .then(arrayBuffer => {
+  //       return this.context.decodeAudioData(arrayBuffer);
+  //     })
+  //     .then(audioBuffer => {
+  //       audioBuffer = new Uint8Array(audioBuffer.getChannelData(0).buffer);
+  //       audioBuffer = audioBuffer.filter(x => x > 0);
+  //       const bufferLength = audioBuffer.length;
 
-        const shortBuffer = this.context.createBuffer(1, bufferLength, this.sampleRate);
-        const sB = new Uint8Array(shortBuffer.getChannelData(0).buffer);
+  //       const shortBuffer = this.context.createBuffer(1, bufferLength, this.sampleRate);
+  //       const sB = new Uint8Array(shortBuffer.getChannelData(0).buffer);
 
-        // What to do?
-      });
-  }
+  //       // What to do?
+  //     });
+  // }
 }
