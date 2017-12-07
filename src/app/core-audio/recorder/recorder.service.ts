@@ -1,8 +1,12 @@
 import { Injectable } from '@angular/core';
-import { WorkerService } from './worker.service';
+import { BehaviorSubject } from 'rxjs/BehaviorSubject';
+
+import { WorkerService, } from './../worker/worker.service';
+import { WebWorker } from './../worker/web-worker';
+import { Observable } from 'rxjs/Observable';
 
 @Injectable()
-export class RecordingService {
+export class RecorderService {
   private context: any;
   private jsAudioNode: any;
   private mediaStream: any;
@@ -11,23 +15,17 @@ export class RecordingService {
   private sampleRate = 44100;
   private recordingLength = 0;
   private blob: Blob;
-  private isAudioProcessStarted = false;
   private audioChannel: any[] = [];
   private stream: any;
-  // private treshold = 2;
-  public isRecording = false;
+  private recording = new BehaviorSubject<boolean>(false);
 
   constructor(private workerService: WorkerService) {
     this.onAudioProcess = this.onAudioProcess.bind(this);
   }
 
   private onAudioProcess(event) {
-    if (!this.isRecording) {
+    if (!this.recording.value) {
       return;
-    }
-
-    if (!this.isAudioProcessStarted) {
-      this.isAudioProcessStarted = true;
     }
 
     const audioData = event.inputBuffer.getChannelData(0);
@@ -104,32 +102,17 @@ export class RecordingService {
       });
     }
 
-    const webWorker = this.workerService.execute(processAudioBuffer);
+    const webWorker: WebWorker = this.workerService.execute(processAudioBuffer);
 
-    webWorker.onmessage = function (event) {
+    webWorker.onmessage(function (event) {
       callback(event.data.buffer, event.data.view);
-
-      // release memory
-      URL.revokeObjectURL(webWorker.url);
-    };
+    });
 
     webWorker.postMessage(config);
   }
 
-  // private processInWebWorker(_function) {
-  //   const blob = new Blob([_function.toString(),
-  //   ';this.onmessage =  function (e) {' + _function.name + '(e.data);}'
-  //   ], { type: 'application/javascript' });
-
-  //   var workerURL = URL.createObjectURL(blob);
-
-  //   var worker: any = new Worker(workerURL);
-  //   worker.workerURL = workerURL;
-  //   return worker;
-  // }
-
   private stopRecording(callback) {
-    this.isRecording = false;
+    this.recording.next(false);
 
     this.audioInput.disconnect();
     this.jsAudioNode.disconnect();
@@ -147,9 +130,11 @@ export class RecordingService {
       });
 
       callback && callback(this.blob);
-
-      this.isAudioProcessStarted = false;
     });
+  }
+
+  public isRecording(): Observable<boolean> {
+    return this.recording.asObservable();
   }
 
   public start() {
@@ -169,7 +154,7 @@ export class RecordingService {
 
     this.stream = navigator.mediaDevices.getUserMedia({ audio: true })
       .then((microphone) => {
-        this.isRecording = true;
+        this.recording.next(true);
         this.mediaStream = microphone;
 
         this.audioInput = this.context.createMediaStreamSource(microphone);
@@ -190,28 +175,6 @@ export class RecordingService {
       const audio = document.querySelector('audio');
       audio.src = url;
 
-      // this.analyzeAudioBlob(blob);
     });
   };
-
-  // private analyzeAudioBlob(blob: Blob) {
-  //   return new Promise((resolve => {
-  //     let fileReader = new FileReader();
-  //     fileReader.onload = () => { resolve(fileReader.result) };
-  //     fileReader.readAsArrayBuffer(blob);
-  //   }))
-  //     .then(arrayBuffer => {
-  //       return this.context.decodeAudioData(arrayBuffer);
-  //     })
-  //     .then(audioBuffer => {
-  //       audioBuffer = new Uint8Array(audioBuffer.getChannelData(0).buffer);
-  //       audioBuffer = audioBuffer.filter(x => x > 0);
-  //       const bufferLength = audioBuffer.length;
-
-  //       const shortBuffer = this.context.createBuffer(1, bufferLength, this.sampleRate);
-  //       const sB = new Uint8Array(shortBuffer.getChannelData(0).buffer);
-
-  //       // What to do?
-  //     });
-  // }
 }

@@ -1,5 +1,5 @@
 import { Component } from '@angular/core';
-import { RecordingService } from './recording.service';
+import { RecorderService } from './core-audio/recorder/recorder.service';
 
 @Component({
   selector: 'app-root',
@@ -9,13 +9,13 @@ import { RecordingService } from './recording.service';
 export class AppComponent {
   public title = 'app';
 
-  constructor(private recordingService: RecordingService) { }
+  constructor(private recorderService: RecorderService) { }
 
   start() {
-    this.recordingService.start();
+    this.recorderService.start();
   }
 
   stop() {
-    this.recordingService.stop();
+    this.recorderService.stop();
   }
 }
