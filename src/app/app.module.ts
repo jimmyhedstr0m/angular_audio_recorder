@@ -1,10 +1,9 @@
 import { BrowserModule } from '@angular/platform-browser';
 import { NgModule } from '@angular/core';
 
+import { CoreAudioModule } from './core-audio';
 
 import { AppComponent } from './app.component';
-import { RecorderService } from './core-audio/recorder/recorder.service';
-import { WorkerService } from './core-audio/worker/worker.service';
 
 
 @NgModule({
@@ -12,11 +11,11 @@ import { WorkerService } from './core-audio/worker/worker.service';
     AppComponent
   ],
   imports: [
-    BrowserModule
+    BrowserModule,
+    CoreAudioModule
   ],
   providers: [
-    RecorderService,
-    WorkerService
+
   ],
   bootstrap: [AppComponent]
 })
